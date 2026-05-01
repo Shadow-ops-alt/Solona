@@ -5,41 +5,45 @@ import SolanaLogo from '../components/SolanaLogo'
 
 function LandingPage() {
   return (
-    <section style={{ display: 'grid', gap: 56 }}>
+    <section style={{ display: 'grid', gap: 64 }}>
       {/* ── SECTION 1: Hero ── */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: 32,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: 40,
           alignItems: 'center',
+          marginTop: 24,
         }}
       >
-        <div style={{ display: 'grid', gap: 24 }}>
+        <div style={{ display: 'grid', gap: 28 }}>
           <span
-            className="mono-label"
             style={{
               display: 'inline-flex',
               width: 'fit-content',
               color: 'var(--green)',
-              border: '1px solid var(--outline-dim)',
+              background: 'var(--green-soft)',
+              border: '1px solid rgba(5, 150, 105, 0.2)',
               borderRadius: 9999,
-              padding: '6px 12px',
+              padding: '6px 14px',
               animation: 'fadeUp 0.5s ease both',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 600,
+              fontSize: 13,
             }}
           >
             Built on Solana · Devnet
           </span>
-          <h1 style={{ animation: 'fadeUp 0.5s ease both' }}>
+          <h1 style={{ animation: 'fadeUp 0.5s ease 0.1s both' }}>
             Send money home.
             <br />
             Not fees.
           </h1>
-          <p className="body-lg muted" style={{ maxWidth: 560, animation: 'fadeUp 0.5s ease 0.1s both' }}>
+          <p className="body-lg muted" style={{ maxWidth: 560, animation: 'fadeUp 0.5s ease 0.2s both' }}>
             Transfer SOL or USDC to Nepal in seconds. Recipients cash out in NPR. No banks. No 7%
-            cut.
+            cut. Trust-first fintech powered by Solana.
           </p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', animation: 'fadeUp 0.5s ease 0.2s both' }}>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', animation: 'fadeUp 0.5s ease 0.3s both' }}>
             <Link to="/send">
               <Button>Send Money</Button>
             </Link>
@@ -47,27 +51,30 @@ function LandingPage() {
               <Button variant="ghost">Receive a Transfer</Button>
             </Link>
           </div>
-          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', animation: 'fadeUp 0.5s ease 0.3s both' }}>
+          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', animation: 'fadeUp 0.5s ease 0.4s both', marginTop: 12 }}>
             {[
               { value: '< $0.01', label: 'per transfer' },
               { value: '~0.4s', label: 'finality' },
               { value: '$8B+', label: 'market size' },
             ].map((item) => (
               <div key={item.label}>
-                <p className="mono-data">{item.value}</p>
-                <p className="mono-label muted">{item.label}</p>
+                <p className="mono-data" style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{item.value}</p>
+                <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: 'var(--on-surface-muted)' }}>{item.label}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <Card style={{ animation: 'fadeUp 0.6s ease 0.15s both' }}>
-          <div style={{ display: 'grid', gap: 18 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>🇺🇸 You</span>
-              <span className="mono-data">$200 USDC</span>
+        <Card glass style={{ animation: 'fadeUp 0.6s ease 0.2s both' }}>
+          <div style={{ display: 'grid', gap: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 24 }}>🇺🇸</span>
+                <span style={{ fontWeight: 600 }}>You</span>
+              </div>
+              <span className="mono-data" style={{ fontWeight: 600 }}>$200 USDC</span>
             </div>
-            <div style={{ position: 'relative', textAlign: 'center' }}>
+            <div style={{ position: 'relative', textAlign: 'center', margin: '8px 0' }}>
               <div className="hr" />
               <div
                 style={{
@@ -80,20 +87,22 @@ function LandingPage() {
                 <span
                   style={{
                     background: 'var(--surface)',
-                    padding: '0 8px',
+                    padding: '4px 12px',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,
+                    borderRadius: 9999,
+                    border: '1px solid var(--outline-dim)',
+                    boxShadow: 'var(--shadow-sm)',
                   }}
                 >
-                  <SolanaLogo size={18} />
+                  <SolanaLogo size={16} />
                   <span
-                    className="mono-label"
                     style={{
                       color: 'var(--green)',
-                      borderRadius: 9999,
-                      border: '1px solid var(--green)',
-                      padding: '4px 10px',
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 600,
+                      fontSize: 13,
                     }}
                   >
                     &lt; $0.01 fee
@@ -101,36 +110,45 @@ function LandingPage() {
                 </span>
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>🇳🇵 Ama</span>
-              <span className="mono-data">NPR 26,800</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 24 }}>🇳🇵</span>
+                <span style={{ fontWeight: 600 }}>Ama</span>
+              </div>
+              <span className="mono-data" style={{ fontWeight: 600 }}>NPR 26,800</span>
             </div>
-            <span
-              style={{
-                background: '#052916',
-                color: '#14f195',
-                border: '1px solid #14f195',
-                borderRadius: 9999,
-                padding: '4px 12px',
-                width: 'fit-content',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 12,
-              }}
-            >
-              Confirmed in 0.4s ✓
-            </span>
+            <div style={{ marginTop: 8 }}>
+               <span
+                  style={{
+                    background: 'var(--green-soft)',
+                    color: 'var(--green)',
+                    border: '1px solid rgba(5, 150, 105, 0.2)',
+                    borderRadius: 9999,
+                    padding: '6px 14px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
+                  Confirmed in 0.4s
+                </span>
+            </div>
           </div>
         </Card>
       </div>
 
       {/* ── SECTION 2: How it works ── */}
-      <div style={{ display: 'grid', gap: 20 }}>
+      <div style={{ display: 'grid', gap: 24 }}>
         <h2>How it works</h2>
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: 16,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 20,
           }}
         >
           {[
@@ -152,19 +170,26 @@ function LandingPage() {
           ].map((step, i) => (
             <Card
               key={step.num}
-              style={{ animation: `fadeUp 0.5s ease ${0.1 + i * 0.1}s both` }}
+              style={{ animation: `fadeUp 0.5s ease ${0.1 + i * 0.15}s both` }}
             >
-              <div style={{ display: 'grid', gap: 10 }}>
-                <span
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div
                   style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: 'var(--primary-soft)',
+                    color: 'var(--primary)',
+                    display: 'grid',
+                    placeItems: 'center',
                     fontFamily: 'JetBrains Mono, monospace',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: 'var(--primary-light)',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    marginBottom: 4,
                   }}
                 >
-                  {step.num} · {step.title}
-                </span>
+                  {step.num}
+                </div>
                 <h3>{step.title}</h3>
                 <p className="body-md muted">{step.desc}</p>
               </div>
@@ -174,14 +199,14 @@ function LandingPage() {
       </div>
 
       {/* ── SECTION 3: Fee comparison ── */}
-      <Card style={{ background: 'var(--surface-low)' }}>
-        <div style={{ display: 'grid', gap: 20 }}>
-          <p className="mono-label muted">Fee comparison</p>
-          <div style={{ display: 'grid', gap: 16 }}>
-            <FeeBar label="Western Union" percent="5–8%" fillWidth="70%" color="var(--error)" />
-            <FeeBar label="ChainRemit" percent="< 0.1%" fillWidth="2%" color="var(--green)" />
+      <Card style={{ background: 'var(--surface-high)', border: 'none' }}>
+        <div style={{ display: 'grid', gap: 24 }}>
+          <h3 style={{ fontSize: 18 }}>Fee comparison</h3>
+          <div style={{ display: 'grid', gap: 20 }}>
+            <FeeBar label="Western Union" percent="5–8%" fillWidth="70%" color="var(--error)" bg="var(--error-soft)" />
+            <FeeBar label="ChainRemit" percent="< 0.1%" fillWidth="2%" color="var(--green)" bg="var(--green-soft)" />
           </div>
-          <p className="mono-label muted">
+          <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 14, color: 'var(--on-surface-muted)', marginTop: 4 }}>
             $8B+ in annual Nepal remittances. Families lose ~$480M/year in fees.
           </p>
         </div>
@@ -190,15 +215,15 @@ function LandingPage() {
   )
 }
 
-function FeeBar({ label, percent, fillWidth, color }) {
+function FeeBar({ label, percent, fillWidth, color, bg }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-      <span className="mono-data" style={{ minWidth: 130 }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+      <span style={{ minWidth: 140, fontWeight: 600, fontSize: 15 }}>{label}</span>
       <div
         style={{
           flex: 1,
-          height: 8,
-          borderRadius: 4,
+          height: 12,
+          borderRadius: 6,
           background: 'var(--outline-dim)',
           position: 'relative',
           overflow: 'hidden',
@@ -210,14 +235,16 @@ function FeeBar({ label, percent, fillWidth, color }) {
             top: 0,
             left: 0,
             height: '100%',
-            borderRadius: 4,
+            borderRadius: 6,
             background: color,
             '--target-width': fillWidth,
-            animation: 'growBar 0.8s ease 0.3s both',
+            animation: 'growBar 0.8s ease 0.4s both',
           }}
         />
       </div>
-      <span className="mono-label" style={{ minWidth: 50, textAlign: 'right' }}>{percent}</span>
+      <span style={{ minWidth: 60, textAlign: 'right', fontWeight: 600, color, fontFamily: 'JetBrains Mono, monospace', fontSize: 14 }}>
+        {percent}
+      </span>
     </div>
   )
 }
