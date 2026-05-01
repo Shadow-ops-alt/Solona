@@ -1,56 +1,89 @@
-import { Outlet, useLocation } from 'react-router-dom'
-import { useRole } from '../context/RoleContext'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 
 function Layout() {
   const { pathname } = useLocation()
-  const { activeRole, setActiveRole } = useRole()
-  const showHeader = pathname.startsWith('/claim') || pathname.startsWith('/dashboard')
+  const isClaim = pathname.startsWith('/claim')
+  const isSend = pathname.startsWith('/send')
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <div className="screen" style={{ paddingTop: showHeader ? 32 : 56 }}>
-        {showHeader ? (
-          <header style={{ textAlign: 'center', marginBottom: 24 }}>
-            <p style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 20, fontWeight: 600 }}>
-              ChainRemit
-            </p>
-            <p className="muted mono-label" style={{ marginTop: 4 }}>
-              ∅ → ∞
-            </p>
-          </header>
-        ) : null}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
-          <div
+      <nav
+        style={{
+          height: 56,
+          background: 'var(--surface-low)',
+          borderBottom: '1px solid var(--outline-dim)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 24px',
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+        }}
+      >
+        <Link to="/" style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span
             style={{
-              display: 'inline-flex',
-              background: 'var(--surface-low)',
-              border: '1px solid var(--outline-dim)',
-              borderRadius: 9999,
-              padding: 4,
-              gap: 4,
+              fontFamily: 'Space Grotesk, sans-serif',
+              fontWeight: 600,
+              fontSize: 18,
+              color: 'var(--on-surface)',
             }}
           >
-            {['sender', 'receiver'].map((role) => (
+            ChainRemit
+          </span>
+          <span
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 11,
+              color: 'var(--outline)',
+            }}
+          >
+            ∅ → ∞
+          </span>
+        </Link>
+
+        {!isClaim ? (
+          <div style={{ display: 'flex', gap: 8 }}>
+            {!isSend ? (
+              <Link to="/send">
+                <button
+                  type="button"
+                  className="mono-label"
+                  style={{
+                    border: '1px solid var(--outline-dim)',
+                    borderRadius: 9999,
+                    padding: '6px 14px',
+                    background: 'transparent',
+                    color: 'var(--on-surface-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Send Money
+                </button>
+              </Link>
+            ) : null}
+            <Link to="/dashboard">
               <button
-                key={role}
                 type="button"
-                onClick={() => setActiveRole(role)}
                 className="mono-label"
                 style={{
-                  border: 'none',
+                  border: '1px solid var(--outline-dim)',
                   borderRadius: 9999,
-                  padding: '8px 14px',
+                  padding: '6px 14px',
+                  background: 'transparent',
+                  color: 'var(--on-surface-muted)',
                   cursor: 'pointer',
-                  textTransform: 'capitalize',
-                  color: activeRole === role ? 'var(--on-surface)' : 'var(--on-surface-muted)',
-                  background: activeRole === role ? 'var(--primary)' : 'transparent',
                 }}
               >
-                {role}
+                Dashboard
               </button>
-            ))}
+            </Link>
           </div>
-        </div>
+        ) : null}
+      </nav>
+
+      <div className="screen" style={{ paddingTop: 32 }}>
         <Outlet />
       </div>
     </div>

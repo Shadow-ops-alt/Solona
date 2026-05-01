@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import Card from '../components/Card'
 import Input from '../components/Input'
@@ -8,13 +8,12 @@ import SolanaLogo from '../components/SolanaLogo'
 
 const statusStages = ['Signing transaction...', 'Broadcasting...', 'Locking in escrow...', 'Confirmed ✓']
 
-function AmountStep() {
-  const navigate = useNavigate()
+function AmountStep({ onNext }) {
   const [currency, setCurrency] = useState('USD')
   const [showFees, setShowFees] = useState(false)
 
   return (
-    <Card style={{ maxWidth: 480, margin: '0 auto' }}>
+    <Card style={{ maxWidth: 480, margin: '0 auto', animation: 'fadeUp 0.35s ease both' }}>
       <ProgressStepper steps={['Amount', 'Recipient', 'Confirm']} currentStep={1} />
       <div style={{ display: 'grid', justifyItems: 'center', gap: 14 }}>
         <div style={{ display: 'flex', alignItems: 'baseline' }}>
@@ -66,7 +65,7 @@ function AmountStep() {
           Show fee breakdown {showFees ? '↑' : '↓'}
         </button>
         {showFees ? (
-          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+          <div style={{ display: 'grid', gap: 8, marginTop: 12, animation: 'slideDown 0.2s ease both' }}>
             <FeeRow label="Network fee" value="$0.0008" />
             <FeeRow label="Off-ramp" value="0.50%" />
             <FeeRow label="FX rate" value="1 USD = 134.2 NPR" />
@@ -83,22 +82,36 @@ function AmountStep() {
         ) : null}
       </div>
       <div className="hr" style={{ margin: '20px 0' }} />
-      <Button fullWidth onClick={() => navigate('/send?step=recipient')}>
+      <Button fullWidth onClick={() => onNext()}>
         Set Amount →
       </Button>
     </Card>
   )
 }
 
-function RecipientStep() {
-  const navigate = useNavigate()
+function RecipientStep({ onNext, onBack }) {
   const [value, setValue] = useState('')
   const [showWallet, setShowWallet] = useState(false)
   const [wallet, setWallet] = useState('')
-  const [showLinkCard, setShowLinkCard] = useState(false)
+  const [linkGenerated, setLinkGenerated] = useState(false)
 
   return (
-    <Card style={{ maxWidth: 480, margin: '0 auto' }}>
+    <Card style={{ maxWidth: 480, margin: '0 auto', animation: 'fadeUp 0.35s ease both' }}>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mono-label"
+        style={{
+          border: 'none',
+          background: 'transparent',
+          color: 'var(--outline)',
+          padding: 0,
+          cursor: 'pointer',
+          marginBottom: 12,
+        }}
+      >
+        ← Back
+      </button>
       <ProgressStepper steps={['Amount', 'Recipient', 'Confirm']} currentStep={2} />
       <Input
         label="Recipient phone or email"
@@ -123,7 +136,7 @@ function RecipientStep() {
         Or paste wallet address
       </button>
       {showWallet ? (
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 12, animation: 'slideDown 0.2s ease both' }}>
           <Input
             label="Wallet address"
             value={wallet}
@@ -134,57 +147,141 @@ function RecipientStep() {
         </div>
       ) : null}
 
-      <div style={{ marginTop: 16 }}>
-        <Button fullWidth onClick={() => setShowLinkCard(true)}>
-          Generate Link →
-        </Button>
-      </div>
-      {showLinkCard ? (
-        <Card style={{ marginTop: 16, background: 'var(--surface-low)' }}>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <span className="mono-label muted">Claim link</span>
-            <p className="mono-data">chainremit.app/claim/xK9mP...</p>
-            <div
-              style={{
-                width: 120,
-                height: 120,
-                border: '1px solid var(--outline-dim)',
-                background: 'var(--surface-high)',
+      {!linkGenerated ? (
+        <div style={{ marginTop: 16 }}>
+          <Button fullWidth onClick={() => setLinkGenerated(true)}>
+            Generate Link →
+          </Button>
+        </div>
+      ) : null}
+
+      {linkGenerated ? (
+        <>
+          <Card style={{ marginTop: 16, background: 'var(--surface-low)', animation: 'slideDown 0.25s ease both' }}>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <span className="mono-label muted">Claim link</span>
+              <p className="mono-data">chainremit.app/claim/xK9mP...</p>
+              <div style={{
+                width: 120, height: 120,
+                background: 'white',
+                padding: 8,
+                borderRadius: 4,
                 display: 'grid',
                 placeItems: 'center',
-              }}
-              className="mono-label muted"
-            >
-              QR
+              }}>
+                <svg width="104" height="104" viewBox="0 0 29 29">
+                  {/* Top-left finder pattern */}
+                  <rect x="0" y="0" width="7" height="7" fill="#000"/>
+                  <rect x="1" y="1" width="5" height="5" fill="white"/>
+                  <rect x="2" y="2" width="3" height="3" fill="#000"/>
+                  {/* Top-right finder pattern */}
+                  <rect x="22" y="0" width="7" height="7" fill="#000"/>
+                  <rect x="23" y="1" width="5" height="5" fill="white"/>
+                  <rect x="24" y="2" width="3" height="3" fill="#000"/>
+                  {/* Bottom-left finder pattern */}
+                  <rect x="0" y="22" width="7" height="7" fill="#000"/>
+                  <rect x="1" y="23" width="5" height="5" fill="white"/>
+                  <rect x="2" y="24" width="3" height="3" fill="#000"/>
+                  {/* Data modules — scattered pattern */}
+                  <rect x="8" y="0" width="1" height="1" fill="#000"/>
+                  <rect x="10" y="0" width="1" height="1" fill="#000"/>
+                  <rect x="12" y="0" width="1" height="1" fill="#000"/>
+                  <rect x="14" y="0" width="1" height="1" fill="#000"/>
+                  <rect x="8" y="2" width="1" height="1" fill="#000"/>
+                  <rect x="9" y="3" width="1" height="1" fill="#000"/>
+                  <rect x="11" y="2" width="1" height="1" fill="#000"/>
+                  <rect x="13" y="3" width="1" height="1" fill="#000"/>
+                  <rect x="14" y="2" width="1" height="1" fill="#000"/>
+                  <rect x="8" y="4" width="1" height="1" fill="#000"/>
+                  <rect x="10" y="5" width="1" height="1" fill="#000"/>
+                  <rect x="12" y="4" width="1" height="1" fill="#000"/>
+                  <rect x="0" y="8" width="1" height="1" fill="#000"/>
+                  <rect x="2" y="8" width="1" height="1" fill="#000"/>
+                  <rect x="4" y="9" width="1" height="1" fill="#000"/>
+                  <rect x="6" y="8" width="1" height="1" fill="#000"/>
+                  <rect x="1" y="10" width="1" height="1" fill="#000"/>
+                  <rect x="3" y="11" width="1" height="1" fill="#000"/>
+                  <rect x="5" y="10" width="1" height="1" fill="#000"/>
+                  <rect x="8" y="8" width="5" height="1" fill="#000"/>
+                  <rect x="9" y="9" width="1" height="1" fill="#000"/>
+                  <rect x="11" y="10" width="3" height="1" fill="#000"/>
+                  <rect x="14" y="8" width="1" height="5" fill="#000"/>
+                  <rect x="16" y="8" width="1" height="1" fill="#000"/>
+                  <rect x="18" y="9" width="1" height="1" fill="#000"/>
+                  <rect x="20" y="8" width="1" height="1" fill="#000"/>
+                  <rect x="22" y="8" width="1" height="1" fill="#000"/>
+                  <rect x="24" y="9" width="1" height="1" fill="#000"/>
+                  <rect x="26" y="8" width="1" height="1" fill="#000"/>
+                  <rect x="28" y="8" width="1" height="1" fill="#000"/>
+                  <rect x="16" y="10" width="3" height="1" fill="#000"/>
+                  <rect x="20" y="10" width="1" height="1" fill="#000"/>
+                  <rect x="23" y="10" width="1" height="1" fill="#000"/>
+                  <rect x="25" y="11" width="1" height="1" fill="#000"/>
+                  <rect x="28" y="10" width="1" height="1" fill="#000"/>
+                  <rect x="8" y="14" width="1" height="1" fill="#000"/>
+                  <rect x="10" y="14" width="1" height="1" fill="#000"/>
+                  <rect x="12" y="15" width="1" height="1" fill="#000"/>
+                  <rect x="0" y="14" width="1" height="1" fill="#000"/>
+                  <rect x="2" y="15" width="1" height="1" fill="#000"/>
+                  <rect x="4" y="14" width="1" height="1" fill="#000"/>
+                  <rect x="6" y="15" width="1" height="1" fill="#000"/>
+                  <rect x="14" y="14" width="1" height="5" fill="#000"/>
+                  <rect x="16" y="14" width="3" height="1" fill="#000"/>
+                  <rect x="20" y="14" width="1" height="1" fill="#000"/>
+                  <rect x="22" y="14" width="1" height="1" fill="#000"/>
+                  <rect x="24" y="15" width="1" height="1" fill="#000"/>
+                  <rect x="26" y="14" width="1" height="1" fill="#000"/>
+                  <rect x="28" y="15" width="1" height="1" fill="#000"/>
+                  <rect x="8" y="22" width="5" height="1" fill="#000"/>
+                  <rect x="9" y="23" width="1" height="1" fill="#000"/>
+                  <rect x="11" y="24" width="3" height="1" fill="#000"/>
+                  <rect x="14" y="22" width="1" height="5" fill="#000"/>
+                  <rect x="16" y="22" width="3" height="1" fill="#000"/>
+                  <rect x="20" y="22" width="1" height="1" fill="#000"/>
+                  <rect x="22" y="23" width="1" height="1" fill="#000"/>
+                  <rect x="24" y="22" width="1" height="1" fill="#000"/>
+                  <rect x="26" y="23" width="1" height="1" fill="#000"/>
+                  <rect x="28" y="22" width="1" height="1" fill="#000"/>
+                  <rect x="16" y="24" width="1" height="1" fill="#000"/>
+                  <rect x="18" y="25" width="1" height="1" fill="#000"/>
+                  <rect x="20" y="24" width="1" height="1" fill="#000"/>
+                  <rect x="23" y="24" width="1" height="1" fill="#000"/>
+                  <rect x="25" y="25" width="1" height="1" fill="#000"/>
+                  <rect x="27" y="24" width="1" height="1" fill="#000"/>
+                  <rect x="8" y="28" width="1" height="1" fill="#000"/>
+                  <rect x="10" y="28" width="1" height="1" fill="#000"/>
+                  <rect x="12" y="28" width="1" height="1" fill="#000"/>
+                </svg>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button variant="ghost" fullWidth>
+                  Copy Link
+                </Button>
+                <Button
+                  variant="ghost"
+                  fullWidth
+                  style={{ borderColor: 'var(--green)', color: 'var(--green)' }}
+                >
+                  Share via WhatsApp
+                </Button>
+              </div>
+              <p className="body-md muted">
+                Recipient logs in with their phone. No crypto wallet needed.
+              </p>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button variant="ghost" fullWidth>
-                Copy Link
-              </Button>
-              <Button
-                variant="ghost"
-                fullWidth
-                style={{ borderColor: 'var(--green)', color: 'var(--green)' }}
-              >
-                Share via WhatsApp
-              </Button>
-            </div>
-            <p className="body-md muted">
-              Recipient logs in with their phone. No crypto wallet needed.
-            </p>
+          </Card>
+          <div style={{ marginTop: 16 }}>
+            <Button fullWidth onClick={() => onNext()}>
+              Lock Funds →
+            </Button>
           </div>
-        </Card>
+        </>
       ) : null}
-      <div style={{ marginTop: 16 }}>
-        <Button fullWidth onClick={() => navigate('/send/confirm')}>
-          Lock Funds →
-        </Button>
-      </div>
     </Card>
   )
 }
 
-function ConfirmStep() {
+function ConfirmStep({ onBack }) {
   const navigate = useNavigate()
   const [statusIndex, setStatusIndex] = useState(0)
 
@@ -196,30 +293,41 @@ function ConfirmStep() {
     return () => timers.forEach((timer) => window.clearTimeout(timer))
   }, [])
 
-  useEffect(() => {
-    if (statusIndex === statusStages.length - 1) {
-      const doneTimer = window.setTimeout(() => navigate('/send/done'), 700)
-      return () => window.clearTimeout(doneTimer)
-    }
-    return undefined
-  }, [navigate, statusIndex])
-
   const isConfirmed = statusIndex === statusStages.length - 1
 
   return (
-    <Card style={{ maxWidth: 480, margin: '0 auto' }}>
+    <Card style={{ maxWidth: 480, margin: '0 auto', animation: 'fadeUp 0.35s ease both' }}>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mono-label"
+        style={{
+          border: 'none',
+          background: 'transparent',
+          color: 'var(--outline)',
+          padding: 0,
+          cursor: 'pointer',
+          marginBottom: 12,
+        }}
+      >
+        ← Back
+      </button>
       <ProgressStepper steps={['Amount', 'Recipient', 'Confirm']} currentStep={3} />
       <Card style={{ width: '100%', background: 'var(--surface-low)' }}>
         <div style={{ display: 'grid', justifyItems: 'center', gap: 12 }}>
           <div style={{ animation: 'pulse 1.4s ease infinite' }}>
             <SolanaLogo size={40} color="var(--primary)" />
           </div>
-          <p className="mono-data">{statusStages[statusIndex]}</p>
+          <p className="mono-data">
+            <span key={statusIndex} style={{ animation: 'fadeIn 0.3s ease both', display: 'inline-block' }}>
+              {statusStages[statusIndex]}
+            </span>
+          </p>
         </div>
       </Card>
 
       {isConfirmed ? (
-        <Card style={{ marginTop: 16, background: 'var(--surface-low)' }}>
+        <Card style={{ marginTop: 16, background: 'var(--surface-low)', animation: 'fadeUp 0.4s ease both' }}>
           <div style={{ display: 'grid', gap: 8 }}>
             <DetailRow label="Escrow PDA" value="7xKp...mN3q" />
             <DetailRow label="Amount locked" value="200 USDC" />
@@ -238,7 +346,10 @@ function ConfirmStep() {
         Funds are locked on-chain. Only your recipient can release them.
       </p>
       {isConfirmed ? (
-        <div style={{ marginTop: 16 }}>
+        <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
+          <Button fullWidth onClick={() => navigate('/send/done')}>
+            View Transaction →
+          </Button>
           <Link to="/send">
             <Button variant="ghost" fullWidth>
               Send Another Transfer
@@ -268,16 +379,20 @@ function DetailRow({ label, value }) {
   )
 }
 
-function SendFlow({ step = 1 }) {
-  const [searchParams] = useSearchParams()
-  const parsedStep = useMemo(
-    () => (searchParams.get('step') === 'recipient' ? 2 : step),
-    [searchParams, step],
-  )
+function SendFlow({ step: propStep = 1 }) {
+  const [step, setStep] = useState(propStep)
 
-  if (parsedStep === 2) return <RecipientStep />
-  if (parsedStep === 3) return <ConfirmStep />
-  return <AmountStep />
+  return (
+    <>
+      {step === 1 ? (
+        <AmountStep onNext={() => setStep(2)} />
+      ) : step === 2 ? (
+        <RecipientStep onNext={() => setStep(3)} onBack={() => setStep(1)} />
+      ) : (
+        <ConfirmStep onBack={() => setStep(2)} />
+      )}
+    </>
+  )
 }
 
 export default SendFlow

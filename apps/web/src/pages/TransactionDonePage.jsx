@@ -6,13 +6,22 @@ import StatusPill from '../components/StatusPill'
 import { useRole } from '../context/RoleContext'
 
 function TransactionDonePage() {
-  const { activeRole, isSender } = useRole()
+  const { isSender } = useRole()
+
+  const details = [
+    { label: 'Escrow PDA', value: '7xKp...mN3q' },
+    { label: 'Amount', value: '200 USDC' },
+    { label: 'Recipient gets', value: '≈ NPR 26,840' },
+    { label: 'Network', value: 'Solana Devnet' },
+  ]
 
   return (
     <section style={{ maxWidth: 560, margin: '0 auto', display: 'grid', gap: 20 }}>
       <Card>
         <div style={{ display: 'grid', justifyItems: 'center', gap: 14, textAlign: 'center' }}>
-          <SolanaLogo size={44} color="var(--green)" />
+          <div style={{ animation: 'spinOnce 0.6s ease both' }}>
+            <SolanaLogo size={56} color="var(--green)" />
+          </div>
           <p className="mono-label" style={{ color: 'var(--green)' }}>
             Transaction Complete
           </p>
@@ -28,10 +37,21 @@ function TransactionDonePage() {
 
       <Card style={{ background: 'var(--surface-low)' }}>
         <div style={{ display: 'grid', gap: 10 }}>
-          <DetailRow label="Escrow PDA" value="7xKp...mN3q" />
-          <DetailRow label="Amount" value="200 USDC" />
-          <DetailRow label="Recipient gets" value="≈ NPR 26,840" />
-          <DetailRow label="Role context" value={activeRole} />
+          {details.map((item, index) => (
+            <div
+              key={item.label}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                animation: `fadeUp 0.3s ease ${index * 0.1}s both`,
+              }}
+            >
+              <span className="mono-label muted">{item.label}</span>
+              <span className="mono-data" style={{ textTransform: 'capitalize' }}>
+                {item.value}
+              </span>
+            </div>
+          ))}
         </div>
       </Card>
 
@@ -49,17 +69,6 @@ function TransactionDonePage() {
         </Button>
       </div>
     </section>
-  )
-}
-
-function DetailRow({ label, value }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-      <span className="mono-label muted">{label}</span>
-      <span className="mono-data" style={{ textTransform: 'capitalize' }}>
-        {value}
-      </span>
-    </div>
   )
 }
 

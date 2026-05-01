@@ -48,20 +48,22 @@ function ClaimPage() {
               Send OTP
             </Button>
           ) : (
-            <>
-              <Input
-                label="OTP"
-                value={otp}
-                onChange={(event) => setOtp(event.target.value)}
-                placeholder="6 digit code"
-              />
-              <Button fullWidth onClick={() => setVerified(true)}>
-                Verify
-              </Button>
-            </>
+            <div style={{ animation: 'slideDown 0.2s ease both' }}>
+              <div style={{ display: 'grid', gap: 16 }}>
+                <Input
+                  label="OTP"
+                  value={otp}
+                  onChange={(event) => setOtp(event.target.value)}
+                  placeholder="6 digit code"
+                />
+                <Button fullWidth onClick={() => setVerified(true)}>
+                  Verify
+                </Button>
+              </div>
+            </div>
           )}
           {verified ? (
-            <>
+            <div style={{ display: 'grid', gap: 16, animation: 'fadeUp 0.3s ease both' }}>
               <Button
                 fullWidth
                 onClick={handleClaim}
@@ -98,7 +100,7 @@ function ClaimPage() {
               <Button variant="ghost" fullWidth onClick={() => navigate('/dashboard?view=received')}>
                 Go to Dashboard
               </Button>
-            </>
+            </div>
           ) : null}
         </div>
       </Card>
