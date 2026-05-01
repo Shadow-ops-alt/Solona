@@ -170,10 +170,12 @@ function LandingPage() {
           ].map((step, i) => (
             <Card
               key={step.num}
+              className="hover-card"
               style={{ animation: `fadeUp 0.5s ease ${0.1 + i * 0.15}s both` }}
             >
               <div style={{ display: 'grid', gap: 12 }}>
                 <div
+                  className="hover-icon-wrapper"
                   style={{
                     width: 36,
                     height: 36,

@@ -1,5 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import SolanaLogo from '../components/SolanaLogo'
+import ThemeToggle from '../components/ThemeToggle'
 
 const navItems = [
   { to: '/', label: 'Home', icon: '⌂' },
@@ -20,7 +21,7 @@ function Layout() {
       <nav
         style={{
           height: 60,
-          background: 'rgba(255,255,255,0.88)',
+          background: 'var(--glass-bg)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
           borderBottom: '1px solid var(--outline-dim)',
@@ -61,50 +62,54 @@ function Layout() {
           </span>
         </Link>
 
-        {/* Desktop right nav — hidden on claim pages */}
-        {!isClaim ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Wallet badge */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                background: 'var(--primary-soft)',
-                border: '1px solid rgba(109,40,217,0.2)',
-                borderRadius: 9999,
-                padding: '5px 12px 5px 8px',
-              }}
-            >
-              <span
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <ThemeToggle />
+
+          {/* Desktop right nav — hidden on claim pages */}
+          {!isClaim ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* Wallet badge */}
+              <div
                 style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: 'var(--green)',
-                  boxShadow: '0 0 0 2px rgba(5,150,105,0.25)',
-                  display: 'inline-block',
-                }}
-              />
-              <span
-                style={{
-                  fontFamily: 'JetBrains Mono, monospace',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: 'var(--primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  background: 'var(--primary-soft)',
+                  border: '1px solid rgba(109,40,217,0.2)',
+                  borderRadius: 9999,
+                  padding: '5px 12px 5px 8px',
                 }}
               >
-                7xKp…mN3q
-              </span>
-            </div>
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: 'var(--green)',
+                    boxShadow: '0 0 0 2px rgba(5,150,105,0.25)',
+                    display: 'inline-block',
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: 'var(--primary)',
+                  }}
+                >
+                  7xKp…mN3q
+                </span>
+              </div>
 
-            {/* Desktop nav links */}
-            {!isSend ? (
-              <NavPill to="/send" label="Send Money" active={false} />
-            ) : null}
-            <NavPill to="/dashboard" label="History" active={pathname === '/dashboard'} />
-          </div>
-        ) : null}
+              {/* Desktop nav links */}
+              {!isSend ? (
+                <NavPill to="/send" label="Send Money" active={false} />
+              ) : null}
+              <NavPill to="/dashboard" label="History" active={pathname === '/dashboard'} />
+            </div>
+          ) : null}
+        </div>
       </nav>
 
       {/* ── Page content ── */}
@@ -122,7 +127,7 @@ function Layout() {
             left: 0,
             right: 0,
             height: 72,
-            background: 'rgba(255,255,255,0.95)',
+            background: 'var(--glass-bg)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             borderTop: '1px solid var(--outline-dim)',

@@ -33,6 +33,36 @@
   --radius-xs: 6px;
 }
 
+[data-theme="dark"] {
+  --bg: #111115;
+  --bg-low: #18181b;
+  --surface-low: #1e1e24;
+  --surface: #22222a;
+  --surface-high: #2a2a35;
+  --surface-highest: #353545;
+  --on-surface: #f8f9fc;
+  --on-surface-muted: #9ca3af;
+  --outline: #4b5563;
+  --outline-dim: #374151;
+  --primary: #8b5cf6;
+  --primary-light: #a78bfa;
+  --primary-soft: rgba(139, 92, 246, 0.15);
+  --green: #10b981;
+  --green-light: #34d399;
+  --green-soft: rgba(16, 185, 129, 0.15);
+  --green-container: #064e3b;
+  --amber: #f59e0b;
+  --amber-soft: rgba(245, 158, 11, 0.15);
+  --error: #ef4444;
+  --error-soft: rgba(239, 68, 68, 0.15);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glass: 0 8px 32px rgba(139, 92, 246, 0.15);
+  --glass-bg: rgba(34, 34, 42, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -148,6 +178,28 @@ h3 {
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-glass);
+}
+
+/* ── Hover animations ── */
+.hover-card {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease !important;
+  will-change: transform, box-shadow;
+}
+
+.hover-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg) !important;
+  border-color: var(--primary-light) !important;
+}
+
+.hover-icon-wrapper {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.hover-card:hover .hover-icon-wrapper {
+  background: var(--primary) !important;
+  color: var(--surface) !important;
+  transform: scale(1.1) rotate(5deg);
 }
 
 /* ── Keyframe animations ── */
