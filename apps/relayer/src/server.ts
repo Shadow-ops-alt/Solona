@@ -199,15 +199,93 @@ async function getFx(pair: 'USDC/USD' | 'SOL/USD') {
   }
 }
 
+// USD/NPR live FX — averaged from two free sources, cached 60s.
+const FX_USD_NPR_TTL_MS = 60_000
+const FX_USD_NPR_FALLBACK = 134.0
+let usdNprCache: { rate: number; asOfMs: number } | null = null
+
+async function fetchExchangeRateApi(): Promise<number | null> {
+  try {
+    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD')
+    if (!res.ok) return null
+    const body = (await res.json()) as { rates?: { NPR?: number } }
+    const rate = Number(body?.rates?.NPR)
+    return Number.isFinite(rate) && rate > 0 ? rate : null
+  } catch {
+    return null
+  }
+}
+
+async function fetchFrankfurter(): Promise<number | null> {
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=NPR')
+    if (!res.ok) return null
+    const body = (await res.json()) as { rates?: { NPR?: number } }
+    const rate = Number(body?.rates?.NPR)
+    return Number.isFinite(rate) && rate > 0 ? rate : null
+  } catch {
+    return null
+  }
+}
+
+type UsdNprFx = {
+  pair: 'USD/NPR'
+  rate: number
+  provider: 'LIVE' | 'CACHED' | 'FALLBACK'
+  asOfMs: number
+  nextRefreshMs: number
+}
+
+async function getUsdNprRate(): Promise<UsdNprFx> {
+  const now = Date.now()
+
+  // Cache hit within TTL → serve cached.
+  if (usdNprCache && now - usdNprCache.asOfMs < FX_USD_NPR_TTL_MS) {
+    return {
+      pair: 'USD/NPR',
+      rate: usdNprCache.rate,
+      provider: 'CACHED',
+      asOfMs: usdNprCache.asOfMs,
+      nextRefreshMs: usdNprCache.asOfMs + FX_USD_NPR_TTL_MS,
+    }
+  }
+
+  // Cache stale or missing → try both sources in parallel; average successes.
+  const [a, b] = await Promise.all([fetchExchangeRateApi(), fetchFrankfurter()])
+  const live: number[] = []
+  if (a !== null) live.push(a)
+  if (b !== null) live.push(b)
+
+  if (live.length > 0) {
+    const rate = Number((live.reduce((sum, x) => sum + x, 0) / live.length).toFixed(4))
+    usdNprCache = { rate, asOfMs: now }
+    return { pair: 'USD/NPR', rate, provider: 'LIVE', asOfMs: now, nextRefreshMs: now + FX_USD_NPR_TTL_MS }
+  }
+
+  // Both live sources failed → serve last-known cache (now stale) if we have one.
+  if (usdNprCache) {
+    return {
+      pair: 'USD/NPR',
+      rate: usdNprCache.rate,
+      provider: 'CACHED',
+      asOfMs: usdNprCache.asOfMs,
+      nextRefreshMs: usdNprCache.asOfMs + FX_USD_NPR_TTL_MS,
+    }
+  }
+
+  // No live, no cache → hard fallback constant.
+  return {
+    pair: 'USD/NPR',
+    rate: FX_USD_NPR_FALLBACK,
+    provider: 'FALLBACK',
+    asOfMs: now,
+    nextRefreshMs: now + FX_USD_NPR_TTL_MS,
+  }
+}
+
 app.get('/api/fx-rate', async (_req, res) => {
-  // Pyth supplies USDC/USD live; NPR base is mocked (no live NPR feed on Pyth).
-  // The provider tag reflects the USDC half — PYTH_LIVE when Hermes is reachable.
-  const usdc = await getFx('USDC/USD')
-  const minute = Math.floor(Date.now() / 60000)
-  const wobble = (minute % 7) * 0.002
-  const nprBase = 132.84 * (1 + wobble)
-  const rate = Number((usdc.rate * nprBase).toFixed(4))
-  res.json({ rate, provider: usdc.provider, asOfMs: usdc.asOfMs })
+  const fx = await getUsdNprRate()
+  res.json(fx)
 })
 
 app.post('/api/remittances', async (req, res) => {

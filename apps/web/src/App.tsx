@@ -1,5 +1,5 @@
 import './App.css'
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { Buffer } from 'buffer'
@@ -159,6 +159,40 @@ const Icon = {
       <circle cx="12" cy="10" r="3" />
     </svg>
   ),
+  settings: (p: IconProps) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+    </svg>
+  ),
+  search: (p: IconProps) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.35-4.35" />
+    </svg>
+  ),
+  locate: (p: IconProps) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <line x1="2" x2="5" y1="12" y2="12" />
+      <line x1="19" x2="22" y1="12" y2="12" />
+      <line x1="12" x2="12" y1="2" y2="5" />
+      <line x1="12" x2="12" y1="19" y2="22" />
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+  clock: (p: IconProps) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  upload: (p: IconProps) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M12 5v14" />
+      <path d="m5 12 7-7 7 7" />
+    </svg>
+  ),
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -241,8 +275,14 @@ function shortAddr(s?: string | null, head = 4, tail = 4) {
 // FX rate (USD → NPR) — fetched once, shared across the app
 // ─────────────────────────────────────────────────────────────────────────────
 
-type FxRate = { rate: number; provider: 'PYTH_LIVE' | 'PYTH_MOCK'; asOfMs: number }
-const FX_FALLBACK: FxRate = { rate: 132.84, provider: 'PYTH_MOCK', asOfMs: 0 }
+type FxRate = {
+  pair: 'USD/NPR'
+  rate: number
+  provider: 'LIVE' | 'CACHED' | 'FALLBACK'
+  asOfMs: number
+  nextRefreshMs: number
+}
+const FX_FALLBACK: FxRate = { pair: 'USD/NPR', rate: 134.0, provider: 'FALLBACK', asOfMs: 0, nextRefreshMs: 0 }
 
 const FxRateContext = createContext<FxRate>(FX_FALLBACK)
 const useFxRate = () => useContext(FxRateContext)
@@ -256,11 +296,11 @@ function FxRateProvider({ children }: { children: React.ReactNode }) {
         const out = await api<FxRate>('/api/fx-rate')
         if (!cancelled) setFx(out)
       } catch {
-        // keep fallback
+        // keep current value (fallback or last known)
       }
     }
     void tick()
-    const id = window.setInterval(() => void tick(), 30_000)
+    const id = window.setInterval(() => void tick(), 60_000)
     return () => {
       cancelled = true
       window.clearInterval(id)
@@ -275,11 +315,35 @@ function FxRateProvider({ children }: { children: React.ReactNode }) {
 
 function FXTicker() {
   const fx = useFxRate()
+  const isLive = fx.provider === 'LIVE'
+  const dotColor =
+    fx.provider === 'LIVE' ? 'var(--success)' : fx.provider === 'CACHED' ? 'var(--fg-3)' : 'var(--warn)'
   return (
     <span className="fx-ticker">
-      <span className="pulse" />
-      <span>
-        {fx.provider === 'PYTH_LIVE' ? 'Pyth' : 'Pyth (mock)'} · 1 USD = NPR {fx.rate.toFixed(2)}
+      <span
+        className={isLive ? 'pulse' : ''}
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: dotColor,
+          animation: isLive ? undefined : 'none',
+        }}
+      />
+      <span>Pyth · 1 USD = NPR {fx.rate.toFixed(2)}</span>
+      <span
+        style={{
+          marginLeft: 4,
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: '0.06em',
+          padding: '1px 5px',
+          borderRadius: 4,
+          background: dotColor,
+          color: '#0a0a0c',
+        }}
+      >
+        {fx.provider}
       </span>
     </span>
   )
@@ -467,7 +531,10 @@ function Sidebar() {
   ]
   const tools: Array<{ to: string; label: string; icon: React.ReactNode }> = [
     { to: '/receive', label: 'Receiver demo', icon: <Icon.inbox /> },
-    { to: '/agent', label: 'Agent console', icon: <Icon.pin /> },
+    { to: '/agent', label: 'Agent locator', icon: <Icon.pin /> },
+    { to: '/agent/console', label: 'Agent console', icon: <Icon.lock /> },
+    { to: '/kyc', label: 'Verify identity', icon: <Icon.shield /> },
+    { to: '/settings', label: 'Settings', icon: <Icon.settings /> },
   ]
   const isActive = (to: string) => (to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`))
   return (
@@ -725,6 +792,10 @@ function SendFlow() {
   const usdcAmount = Number.isFinite(usd) && usd > 0 ? usd : 0
   const npr = Math.round(usdcAmount * fx.rate)
 
+  const formRef = useRef<HTMLDivElement>(null)
+  const showHero = !wallet.connected && paymentSource === 'SOLANA_WALLET'
+  const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
   async function submit() {
     setError(null)
     setCreated(null)
@@ -818,7 +889,52 @@ function SendFlow() {
   }
 
   return (
-    <div className="content-narrow" style={{ paddingTop: 32 }}>
+    <>
+      {showHero && (
+        <div className="hero">
+          <div className="hero-left">
+            <div className="row" style={{ gap: 8 }}>
+              <span className="pill"><span className="dot" />Live on Solana devnet</span>
+            </div>
+            <h1 className="display">
+              Send money home.<br />
+              Not <span className="grad">fees</span>.
+            </h1>
+            <div style={{ fontSize: 16, color: 'var(--fg-2)', maxWidth: 460, lineHeight: 1.5 }}>
+              Lock USDC in escrow on Solana. Your family claims via SMS — eSewa, Khalti, or cash. Under 0.1% fees, settles in 400ms.
+            </div>
+            <div className="row" style={{ gap: 10, marginTop: 10 }}>
+              <button className="btn btn-accent btn-lg" onClick={scrollToForm}>
+                Get started <Icon.arrowRight />
+              </button>
+              <button
+                className="btn btn-outline btn-lg"
+                onClick={() => setPaymentSource('FIAT')}
+              >
+                Pay with card instead
+              </button>
+            </div>
+          </div>
+          <div className="hero-right">
+            <div style={{ width: '100%', maxWidth: 460, position: 'relative', zIndex: 1 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'var(--fg-3)',
+                  marginBottom: 10,
+                }}
+              >
+                Live comparison · $100 to Nepal
+              </div>
+              <SavingsBar usd={100} npr={Math.round(100 * fx.rate)} variant="racing" />
+            </div>
+          </div>
+        </div>
+      )}
+
+    <div ref={formRef} className="content-narrow" style={{ paddingTop: 32 }}>
       <div className="row" style={{ marginBottom: 18, justifyContent: 'space-between' }}>
         <div className="page-title" style={{ fontSize: 20 }}>
           Send money
@@ -1056,6 +1172,7 @@ function SendFlow() {
         </div>
       )}
     </div>
+    </>
   )
 }
 
@@ -1701,6 +1818,886 @@ function AgentConsole() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Page: Agent locator (frontend-only; static agent list)
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Agent = {
+  id: number
+  name: string
+  addr: string
+  dist: string
+  open: boolean
+  hours: string
+  rating: number
+  reviews: number
+  x: number
+  y: number
+  fee: string
+}
+
+const AGENTS: Agent[] = [
+  { id: 1, name: 'Himalayan Money Transfer', addr: 'Thamel, Kathmandu', dist: '0.4 km', open: true,  hours: '7:00 – 21:00', rating: 4.9, reviews: 312, x: 28, y: 42, fee: '0.5%' },
+  { id: 2, name: 'Annapurna Cash Point',     addr: 'New Road, Kathmandu', dist: '1.2 km', open: true,  hours: '8:00 – 20:00', rating: 4.8, reviews: 187, x: 46, y: 58, fee: '0.5%' },
+  { id: 3, name: 'Everest Remit Hub',        addr: 'Boudha, Kathmandu',   dist: '2.8 km', open: true,  hours: '9:00 – 19:00', rating: 4.7, reviews:  94, x: 68, y: 34, fee: '0.7%' },
+  { id: 4, name: 'Pokhara Express Cash',     addr: 'Lakeside, Pokhara',   dist: '198 km', open: false, hours: 'Opens 7:00',   rating: 4.9, reviews: 421, x: 18, y: 76, fee: '0.5%' },
+  { id: 5, name: 'Patan Money Mart',         addr: 'Mangal Bazaar, Lalitpur', dist: '4.1 km', open: true, hours: '8:00 – 22:00', rating: 4.6, reviews: 256, x: 52, y: 78, fee: '0.6%' },
+  { id: 6, name: 'Bhaktapur Remittance',     addr: 'Durbar Square, Bhaktapur', dist: '12.6 km', open: true, hours: '7:30 – 20:30', rating: 4.8, reviews: 143, x: 82, y: 52, fee: '0.5%' },
+]
+
+function AgentLocator() {
+  const [selected, setSelected] = useState<Agent>(AGENTS[0])
+  const [filter, setFilter] = useState<'all' | 'open'>('all')
+  const filtered = filter === 'open' ? AGENTS.filter((a) => a.open) : AGENTS
+  return (
+    <div className="content" style={{ padding: 0, height: 'calc(100vh - 60px)', display: 'flex' }}>
+      <div style={{ width: 380, borderRight: '1px solid var(--line-1)', display: 'flex', flexDirection: 'column', background: 'var(--bg-0)' }}>
+        <div style={{ padding: '20px 20px 14px', borderBottom: '1px solid var(--line-1)' }}>
+          <div className="row" style={{ marginBottom: 12 }}>
+            <h1 style={{ fontSize: 20, margin: 0, letterSpacing: '-0.02em' }}>Cash-out agents</h1>
+            <div className="spacer" />
+            <span className="tag">Nepal</span>
+          </div>
+          <div className="search-bar" style={{ marginBottom: 10 }}>
+            <Icon.search />
+            <input placeholder="Search by area or agent name…" />
+          </div>
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            <button className={`chip ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>All ({AGENTS.length})</button>
+            <button className={`chip ${filter === 'open' ? 'on' : ''}`} onClick={() => setFilter('open')}>Open now</button>
+            <button className="chip">Highest rated</button>
+            <button className="chip">Nearest</button>
+          </div>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {filtered.map((a) => (
+            <div
+              key={a.id}
+              onClick={() => setSelected(a)}
+              style={{
+                padding: '14px 20px',
+                borderBottom: '1px solid var(--line-1)',
+                cursor: 'pointer',
+                background: selected.id === a.id ? 'rgba(183,148,255,0.08)' : 'transparent',
+                borderLeft: selected.id === a.id ? '3px solid var(--accent)' : '3px solid transparent',
+              }}
+            >
+              <div className="row" style={{ marginBottom: 4 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 550 }}>{a.name}</span>
+                <div className="spacer" />
+                <span className="mono" style={{ fontSize: 11, color: 'var(--fg-3)' }}>{a.dist}</span>
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--fg-2)', marginBottom: 6 }}>{a.addr}</div>
+              <div className="row" style={{ gap: 8, fontSize: 11 }}>
+                <span className="row" style={{ gap: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: a.open ? 'var(--success)' : 'var(--fg-3)' }} />
+                  <span style={{ color: a.open ? 'var(--success)' : 'var(--fg-3)' }}>{a.open ? 'Open' : 'Closed'}</span>
+                </span>
+                <span style={{ color: 'var(--fg-3)' }}>· {a.hours}</span>
+                <div className="spacer" />
+                <span style={{ color: 'var(--fg-2)' }}>★ {a.rating}</span>
+                <span className="mono" style={{ color: 'var(--fg-3)' }}>· {a.fee}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, position: 'relative', background: 'var(--bg-0)', display: 'flex', flexDirection: 'column' }}>
+        <AgentMap agents={filtered} selected={selected} setSelected={setSelected} />
+        <AgentDetail agent={selected} />
+      </div>
+    </div>
+  )
+}
+
+function AgentMap({ agents, selected, setSelected }: { agents: Agent[]; selected: Agent; setSelected: (a: Agent) => void }) {
+  return (
+    <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'radial-gradient(ellipse at 50% 40%, #1a1a22 0%, #0d0d12 80%)' }}>
+      <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, opacity: 0.35 }}>
+        <defs>
+          <pattern id="map-grid" width="60" height="60" patternUnits="userSpaceOnUse">
+            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(183,148,255,0.08)" strokeWidth="0.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#map-grid)" />
+        <path d="M 0,300 Q 200,260 400,320 T 800,280 T 1200,310" stroke="rgba(95,225,196,0.18)" strokeWidth="2" fill="none" />
+        <path d="M 100,500 Q 300,460 500,520 T 900,500" stroke="rgba(95,225,196,0.12)" strokeWidth="1.5" fill="none" />
+        <ellipse cx="50%" cy="50%" rx="35%" ry="25%" stroke="rgba(183,148,255,0.10)" fill="none" strokeWidth="0.6" />
+        <ellipse cx="50%" cy="50%" rx="25%" ry="18%" stroke="rgba(183,148,255,0.10)" fill="none" strokeWidth="0.6" />
+        <ellipse cx="50%" cy="50%" rx="15%" ry="11%" stroke="rgba(183,148,255,0.10)" fill="none" strokeWidth="0.6" />
+        <path d="M 0,200 L 1200,500" stroke="rgba(255,255,255,0.04)" strokeWidth="14" fill="none" />
+        <path d="M 200,0 L 700,800" stroke="rgba(255,255,255,0.04)" strokeWidth="14" fill="none" />
+        <path d="M 1200,100 L 0,700" stroke="rgba(255,255,255,0.03)" strokeWidth="10" fill="none" />
+      </svg>
+      <div style={{ position: 'absolute', left: '38%', top: '50%', transform: 'translate(-50%, -50%)' }}>
+        <div className="me-pulse" />
+        <div className="me-pulse delay" />
+        <div className="me-dot" />
+      </div>
+      {agents.map((a) => {
+        const isSel = selected.id === a.id
+        return (
+          <div
+            key={a.id}
+            onClick={() => setSelected(a)}
+            className="map-pin"
+            style={{
+              position: 'absolute',
+              left: `${a.x}%`,
+              top: `${a.y}%`,
+              transform: `translate(-50%, -100%) scale(${isSel ? 1.15 : 1})`,
+              cursor: 'pointer',
+              zIndex: isSel ? 10 : 1,
+            }}
+          >
+            <svg width="36" height="44" viewBox="0 0 36 44">
+              <defs>
+                <linearGradient id={`pg-${a.id}`} x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor={isSel ? '#B794FF' : a.open ? '#5FE1C4' : '#4a4a55'} />
+                  <stop offset="100%" stopColor={isSel ? '#8E6CFF' : a.open ? '#3FBFA4' : '#2a2a32'} />
+                </linearGradient>
+              </defs>
+              <path d="M 18 0 C 8 0 0 8 0 18 C 0 28 18 44 18 44 C 18 44 36 28 36 18 C 36 8 28 0 18 0 Z" fill={`url(#pg-${a.id})`} stroke="rgba(0,0,0,0.4)" strokeWidth="0.5" />
+              <circle cx="18" cy="17" r="6" fill="white" fillOpacity="0.95" />
+              <text x="18" y="21" textAnchor="middle" fontSize="9" fontWeight="700" fill={isSel ? '#5d3aa8' : '#0a4a3a'}>$</text>
+            </svg>
+            {isSel && <div className="pin-label">{a.name.split(' ')[0]}</div>}
+          </div>
+        )
+      })}
+      <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <button className="map-ctrl">+</button>
+        <button className="map-ctrl">−</button>
+        <button className="map-ctrl"><Icon.locate /></button>
+      </div>
+      <div style={{ position: 'absolute', top: 16, left: 16, display: 'flex', gap: 6 }}>
+        <button className="chip on">Map</button>
+        <button className="chip">Satellite</button>
+      </div>
+      <div style={{ position: 'absolute', bottom: 16, left: 16, padding: '8px 12px', background: 'rgba(15,15,20,0.85)', backdropFilter: 'blur(12px)', border: '1px solid var(--line-1)', borderRadius: 10, display: 'flex', gap: 14, fontSize: 11, color: 'var(--fg-2)' }}>
+        <span className="row" style={{ gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#5FE1C4' }} />Open</span>
+        <span className="row" style={{ gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4a4a55' }} />Closed</span>
+        <span className="row" style={{ gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#B794FF' }} />Selected</span>
+        <span style={{ color: 'var(--fg-3)' }}>· {agents.length} agents in view</span>
+      </div>
+      <style>{`
+        .me-dot { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 14px; height: 14px; border-radius: 50%; background: #5b8dff; border: 3px solid white; box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 4px 10px rgba(91,141,255,0.6); z-index: 5; }
+        .me-pulse { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 14px; height: 14px; border-radius: 50%; background: rgba(91,141,255,0.4); animation: mePulse 2.4s ease-out infinite; }
+        .me-pulse.delay { animation-delay: 1.2s; }
+        @keyframes mePulse { 0% { transform: translate(-50%,-50%) scale(1); opacity: 0.7; } 100% { transform: translate(-50%,-50%) scale(6); opacity: 0; } }
+        .map-pin { transition: transform 0.18s ease; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); }
+        .map-pin:hover { transform: translate(-50%, -100%) scale(1.1) !important; }
+        .pin-label { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); padding: 3px 8px; background: rgba(15,15,20,0.95); border: 1px solid var(--accent); border-radius: 6px; font-size: 10.5px; font-weight: 600; white-space: nowrap; color: var(--fg-0); }
+        .map-ctrl { width: 32px; height: 32px; border-radius: 8px; background: rgba(15,15,20,0.85); backdrop-filter: blur(12px); border: 1px solid var(--line-1); color: var(--fg-1); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .map-ctrl:hover { background: var(--bg-2); }
+      `}</style>
+    </div>
+  )
+}
+
+function AgentDetail({ agent }: { agent: Agent }) {
+  return (
+    <div style={{ borderTop: '1px solid var(--line-1)', background: 'var(--bg-0)', padding: '18px 24px' }}>
+      <div className="row" style={{ alignItems: 'flex-start', gap: 16 }}>
+        <div style={{ width: 52, height: 52, borderRadius: 12, background: 'var(--accent-grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 600, color: '#0a0a0c', flexShrink: 0 }}>
+          {agent.name[0]}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className="row" style={{ marginBottom: 4 }}>
+            <h2 style={{ fontSize: 17, margin: 0, letterSpacing: '-0.015em' }}>{agent.name}</h2>
+            <span className="tag" style={{ background: agent.open ? 'rgba(95,225,196,0.15)' : 'var(--bg-2)', color: agent.open ? 'var(--success)' : 'var(--fg-3)' }}>
+              {agent.open ? '● Open' : 'Closed'}
+            </span>
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--fg-2)', marginBottom: 10 }}>{agent.addr} · {agent.dist} away</div>
+          <div className="row" style={{ gap: 18, fontSize: 12, flexWrap: 'wrap' }}>
+            <span className="row" style={{ gap: 4 }}><Icon.clock /> <span style={{ color: 'var(--fg-2)' }}>{agent.hours}</span></span>
+            <span className="row" style={{ gap: 4 }}>★ <span style={{ color: 'var(--fg-2)' }}>{agent.rating} · {agent.reviews} reviews</span></span>
+            <span className="row" style={{ gap: 4 }}>💵 <span style={{ color: 'var(--fg-2)' }}>Fee {agent.fee}</span></span>
+          </div>
+        </div>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn btn-ghost"><Icon.copy /> Share</button>
+          <button className="btn btn-outline"><Icon.external /> Directions</button>
+          <button className="btn btn-accent">Reserve cash-out</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page: Verify identity (KYC) — frontend-only multi-step demo
+// ─────────────────────────────────────────────────────────────────────────────
+
+const COUNTRY_CODES: Array<{ code: string; flag: string; name: string }> = [
+  { code: '+977', flag: '🇳🇵', name: 'Nepal' },
+  { code: '+91',  flag: '🇮🇳', name: 'India' },
+  { code: '+1',   flag: '🇺🇸', name: 'United States' },
+  { code: '+44',  flag: '🇬🇧', name: 'United Kingdom' },
+  { code: '+61',  flag: '🇦🇺', name: 'Australia' },
+  { code: '+966', flag: '🇸🇦', name: 'Saudi Arabia' },
+  { code: '+974', flag: '🇶🇦', name: 'Qatar' },
+  { code: '+971', flag: '🇦🇪', name: 'UAE' },
+  { code: '+60',  flag: '🇲🇾', name: 'Malaysia' },
+  { code: '+81',  flag: '🇯🇵', name: 'Japan' },
+  { code: '+82',  flag: '🇰🇷', name: 'South Korea' },
+]
+
+function KYCFlow() {
+  const navigate = useNavigate()
+  const [step, setStep] = useState(0)
+  const [dialCode, setDialCode] = useState('+977')
+  const [phone, setPhone] = useState('')
+  const [otp, setOtp] = useState<string[]>(['', '', '', '', '', ''])
+  const [docType, setDocType] = useState<'passport' | 'drivers' | 'national'>('passport')
+  const [country, setCountry] = useState('US')
+  const [verifying, setVerifying] = useState(false)
+  const steps = ['Phone', 'Identity', 'Document', 'Selfie', 'Review']
+  const goNext = () => setStep((s) => Math.min(s + 1, 5))
+  const goBack = () => setStep((s) => Math.max(s - 1, 0))
+  const fullPhone = `${dialCode} ${phone}`.trim()
+
+  return (
+    <div className="content-narrow" style={{ paddingTop: 28 }}>
+      <div className="row" style={{ marginBottom: 20, justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="col" style={{ gap: 4 }}>
+          <div className="row" style={{ gap: 8, color: 'var(--fg-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <Icon.shield /> Identity verification
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--fg-2)' }}>Required for card payments and sends over $1,000. Takes about 2 minutes.</div>
+        </div>
+        <button className="btn btn-ghost" onClick={() => navigate('/')} style={{ padding: '6px 12px', fontSize: 12 }}>Skip for now</button>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <DesignStepper steps={steps} current={Math.min(step, 4)} />
+      </div>
+
+      {step === 0 && (
+        <KYCPhone
+          phone={phone}
+          setPhone={setPhone}
+          dialCode={dialCode}
+          setDialCode={setDialCode}
+          onNext={() => {
+            // Combine dial code + local digits when advancing past the phone step.
+            // (Demo only — no backend yet; stored in state and shown on the OTP screen.)
+            // eslint-disable-next-line no-console
+            console.info('KYC submit phone:', fullPhone)
+            goNext()
+          }}
+        />
+      )}
+      {step === 1 && <KYCOtp otp={otp} setOtp={setOtp} fullPhone={fullPhone} onNext={goNext} onBack={goBack} />}
+      {step === 2 && <KYCIdentity docType={docType} setDocType={setDocType} country={country} setCountry={setCountry} onNext={goNext} onBack={goBack} />}
+      {step === 3 && <KYCDocument docType={docType} onNext={goNext} onBack={goBack} />}
+      {step === 4 && (
+        <KYCSelfie
+          onNext={() => {
+            setVerifying(true)
+            setTimeout(() => {
+              setVerifying(false)
+              goNext()
+            }, 2400)
+          }}
+          onBack={goBack}
+          verifying={verifying}
+        />
+      )}
+      {step === 5 && <KYCDone />}
+    </div>
+  )
+}
+
+function DesignStepper({ steps, current }: { steps: string[]; current: number }) {
+  return (
+    <div className="stepper">
+      {steps.map((s, i) => (
+        <span key={s} style={{ display: 'flex', alignItems: 'center' }}>
+          <div className={`step ${i < current ? 'done' : i === current ? 'active' : ''}`}>
+            <div className="step-num">{i < current ? <Icon.check /> : i + 1}</div>
+            <div>{s}</div>
+          </div>
+          {i < steps.length - 1 && <div className="step-line" style={{ background: i < current ? 'var(--accent-2)' : '' }} />}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function KYCPhone({
+  phone,
+  setPhone,
+  dialCode,
+  setDialCode,
+  onNext,
+}: {
+  phone: string
+  setPhone: (s: string) => void
+  dialCode: string
+  setDialCode: (s: string) => void
+  onNext: () => void
+}) {
+  const selected = COUNTRY_CODES.find((c) => c.code === dialCode) ?? COUNTRY_CODES[0]
+  return (
+    <div className="flow-panel">
+      <div>
+        <h2>Let's verify your phone</h2>
+        <div className="subtitle">We'll text you a 6-digit code. This number is only used for security alerts.</div>
+      </div>
+      <div className="field">
+        <div className="field-label">Mobile number</div>
+        <div className="row" style={{ gap: 8 }}>
+          <label
+            className="input"
+            style={{
+              width: 'auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '11px 12px',
+              cursor: 'pointer',
+              position: 'relative',
+            }}
+          >
+            <span aria-hidden="true">{selected.flag}</span>
+            <span className="mono">{selected.code}</span>
+            <Icon.arrowDown style={{ marginLeft: 2, opacity: 0.7 }} />
+            <select
+              value={dialCode}
+              onChange={(e) => setDialCode(e.target.value)}
+              aria-label="Country code"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                opacity: 0,
+                cursor: 'pointer',
+                appearance: 'none',
+              }}
+            >
+              {COUNTRY_CODES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.flag} {c.code} {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <input
+            className="input"
+            placeholder={dialCode === '+977' ? '98 4123 4567' : 'Phone number'}
+            inputMode="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="card" style={{ background: 'var(--bg-2)', padding: '12px 14px' }}>
+        <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
+          <Icon.lock style={{ color: 'var(--fg-2)', marginTop: 2 }} />
+          <div style={{ fontSize: 11.5, color: 'var(--fg-3)', lineHeight: 1.5 }}>
+            ChainRemit follows Nepal Rastra Bank guidelines for cross-border remittance. Your data is encrypted at rest and never sold.
+          </div>
+        </div>
+      </div>
+      <button className="btn btn-accent btn-lg btn-block" disabled={phone.length < 7} onClick={onNext}>
+        Send code <Icon.arrowRight />
+      </button>
+    </div>
+  )
+}
+
+function KYCOtp({ otp, setOtp, fullPhone, onNext, onBack }: { otp: string[]; setOtp: (v: string[]) => void; fullPhone: string; onNext: () => void; onBack: () => void }) {
+  const filled = otp.filter((d) => d).length
+  useEffect(() => {
+    if (filled === 6) setTimeout(onNext, 400)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filled])
+  const tap = (digit: string) => {
+    const idx = otp.findIndex((d) => !d)
+    if (idx === -1) return
+    const next = [...otp]
+    next[idx] = digit
+    setOtp(next)
+  }
+  const back = () => {
+    const last = [...otp].reverse().findIndex((d) => d)
+    if (last === -1) return
+    const idx = otp.length - 1 - last
+    const next = [...otp]
+    next[idx] = ''
+    setOtp(next)
+  }
+  return (
+    <div className="flow-panel">
+      <div>
+        <h2>Enter the code</h2>
+        <div className="subtitle">
+          Sent to <span className="mono">{fullPhone || '+977 98 4123 4567'}</span> · <span style={{ color: 'var(--accent-2)', cursor: 'pointer' }}>Resend</span>
+        </div>
+      </div>
+      <div className="otp-grid">
+        {otp.map((d, i) => (
+          <div key={i} className={`otp-box ${d ? 'filled' : i === filled ? 'cursor' : ''}`}>{d}</div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, maxWidth: 280, margin: '0 auto' }}>
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((d, i) => (
+          <button
+            key={i}
+            disabled={!d}
+            onClick={() => (d === '⌫' ? back() : tap(d))}
+            style={{
+              padding: '14px 0',
+              borderRadius: 12,
+              background: d ? 'var(--bg-2)' : 'transparent',
+              border: '1px solid var(--line-1)',
+              color: 'var(--fg-0)',
+              fontSize: 18,
+              fontFamily: 'var(--font-mono)',
+              cursor: d ? 'pointer' : 'default',
+              opacity: d ? 1 : 0,
+            }}
+          >
+            {d}
+          </button>
+        ))}
+      </div>
+      <button className="btn btn-ghost" onClick={onBack} style={{ alignSelf: 'flex-start' }}>
+        <Icon.arrowLeft /> Back
+      </button>
+    </div>
+  )
+}
+
+function KYCIdentity({
+  docType,
+  setDocType,
+  country,
+  setCountry,
+  onNext,
+  onBack,
+}: {
+  docType: 'passport' | 'drivers' | 'national'
+  setDocType: (v: 'passport' | 'drivers' | 'national') => void
+  country: string
+  setCountry: (v: string) => void
+  onNext: () => void
+  onBack: () => void
+}) {
+  const docs: Array<{ k: 'passport' | 'drivers' | 'national'; label: string; sub: string; icon: string }> = [
+    { k: 'passport', label: 'Passport', sub: 'Photo page', icon: '🛂' },
+    { k: 'drivers', label: "Driver's license", sub: 'Front + back', icon: '🪪' },
+    { k: 'national', label: 'National ID', sub: 'Government issued', icon: '🆔' },
+  ]
+  return (
+    <div className="flow-panel">
+      <div>
+        <h2>Pick a document</h2>
+        <div className="subtitle">One government ID gets you up to $10,000/month in sends.</div>
+      </div>
+      <div className="field">
+        <div className="field-label">Country of issue</div>
+        <select className="input" value={country} onChange={(e) => setCountry(e.target.value)} style={{ appearance: 'none', cursor: 'pointer' }}>
+          <option value="US">🇺🇸 United States</option>
+          <option value="GB">🇬🇧 United Kingdom</option>
+          <option value="AE">🇦🇪 United Arab Emirates</option>
+          <option value="QA">🇶🇦 Qatar</option>
+          <option value="MY">🇲🇾 Malaysia</option>
+          <option value="AU">🇦🇺 Australia</option>
+          <option value="SG">🇸🇬 Singapore</option>
+        </select>
+      </div>
+      <div className="field">
+        <div className="field-label">Document type</div>
+        <div className="col" style={{ gap: 8 }}>
+          {docs.map((d) => (
+            <div key={d.k} className={`recipient-card ${docType === d.k ? 'selected' : ''}`} onClick={() => setDocType(d.k)} style={{ padding: 14 }}>
+              <div className="avatar" style={{ width: 36, height: 36, fontSize: 18, background: 'var(--bg-3)' }}>{d.icon}</div>
+              <div className="col" style={{ gap: 2 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 500 }}>{d.label}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--fg-3)' }}>{d.sub}</div>
+              </div>
+              <div className="spacer" />
+              <Radio selected={docType === d.k} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="row" style={{ gap: 10 }}>
+        <button className="btn btn-ghost" onClick={onBack}><Icon.arrowLeft /> Back</button>
+        <button className="btn btn-accent" style={{ flex: 1 }} onClick={onNext}>Continue <Icon.arrowRight /></button>
+      </div>
+    </div>
+  )
+}
+
+function KYCDocument({ docType, onNext, onBack }: { docType: 'passport' | 'drivers' | 'national'; onNext: () => void; onBack: () => void }) {
+  const [uploaded, setUploaded] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const docName: Record<typeof docType, string> = { passport: 'Passport photo page', drivers: "Driver's license front", national: 'National ID front' }
+  const upload = () => {
+    setScanning(true)
+    setTimeout(() => {
+      setScanning(false)
+      setUploaded(true)
+    }, 1400)
+  }
+  return (
+    <div className="flow-panel">
+      <div>
+        <h2>Upload your {docName[docType].toLowerCase()}</h2>
+        <div className="subtitle">Make sure all four corners are visible and text is sharp.</div>
+      </div>
+      <div
+        style={{
+          border: '2px dashed ' + (uploaded ? 'var(--accent-2)' : 'var(--line-2)'),
+          borderRadius: 'var(--r-3)',
+          padding: 28,
+          background: 'var(--bg-2)',
+          position: 'relative',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 10,
+          transition: 'border-color 200ms',
+        }}
+      >
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 320,
+            aspectRatio: '1.586 / 1',
+            borderRadius: 12,
+            background: uploaded
+              ? 'linear-gradient(135deg, #1a3a4a 0%, #243a52 100%)'
+              : 'repeating-linear-gradient(45deg, var(--bg-3), var(--bg-3) 8px, var(--bg-2) 8px, var(--bg-2) 16px)',
+            border: '1px solid var(--line-2)',
+            padding: 14,
+            color: '#cfe7d8',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+        >
+          {uploaded && (
+            <>
+              <div className="row" style={{ justifyContent: 'space-between', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(207,231,216,0.7)' }}>
+                <span>UNITED STATES OF AMERICA</span>
+                <span>PASSPORT</span>
+              </div>
+              <div className="row" style={{ gap: 10, alignItems: 'flex-end' }}>
+                <div style={{ width: 50, height: 60, borderRadius: 4, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }} />
+                <div className="col" style={{ gap: 3, fontSize: 9, fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ opacity: 0.6 }}>SURNAME</div>
+                  <div style={{ fontSize: 11, color: '#fff' }}>SHRESTHA</div>
+                  <div style={{ opacity: 0.6, marginTop: 4 }}>GIVEN NAMES</div>
+                  <div style={{ fontSize: 11, color: '#fff' }}>AARAV</div>
+                </div>
+              </div>
+              <div className="mono" style={{ fontSize: 9, letterSpacing: '0.05em', color: 'rgba(255,255,255,0.7)' }}>
+                P&lt;USASHRESTHA&lt;&lt;AARAV&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+              </div>
+            </>
+          )}
+          {scanning && (
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                height: 2,
+                background: 'linear-gradient(90deg, transparent, var(--accent-2), transparent)',
+                animation: 'kyc-scan 1.4s linear infinite',
+              }}
+            />
+          )}
+        </div>
+        {!uploaded && !scanning && (
+          <button className="btn btn-primary" onClick={upload} style={{ marginTop: 8 }}>
+            <Icon.upload /> Upload or take photo
+          </button>
+        )}
+        {scanning && (
+          <div className="row" style={{ gap: 8, fontSize: 12, color: 'var(--fg-2)', marginTop: 6 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-2)' }} />
+            Reading document with OCR…
+          </div>
+        )}
+        {uploaded && (
+          <div className="row" style={{ gap: 6, fontSize: 12, color: 'var(--accent-2)', marginTop: 6 }}>
+            <Icon.check /> Looks great. Name + DOB extracted.
+          </div>
+        )}
+      </div>
+      <div className="row" style={{ gap: 10 }}>
+        <button className="btn btn-ghost" onClick={onBack}><Icon.arrowLeft /> Back</button>
+        <button className="btn btn-accent" style={{ flex: 1 }} disabled={!uploaded} onClick={onNext}>
+          Continue <Icon.arrowRight />
+        </button>
+      </div>
+      <style>{`@keyframes kyc-scan { 0% { top: 12%; } 50% { top: 80%; } 100% { top: 12%; } }`}</style>
+    </div>
+  )
+}
+
+function KYCSelfie({ onNext, onBack, verifying }: { onNext: () => void; onBack: () => void; verifying: boolean }) {
+  const [captured, setCaptured] = useState(false)
+  const [pose, setPose] = useState(0)
+  useEffect(() => {
+    if (!captured) return
+    if (pose < 3) {
+      const id = setTimeout(() => setPose((p) => p + 1), 700)
+      return () => clearTimeout(id)
+    }
+  }, [captured, pose])
+
+  if (verifying) {
+    return (
+      <div className="flow-panel" style={{ alignItems: 'center', textAlign: 'center', padding: 48 }}>
+        <div style={{ width: 80, height: 80 }}>
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <defs>
+              <linearGradient id="kg" x1="0" x2="1">
+                <stop offset="0" stopColor="var(--accent)" />
+                <stop offset="1" stopColor="var(--accent-2)" />
+              </linearGradient>
+            </defs>
+            <circle cx="40" cy="40" r="34" fill="none" stroke="var(--line-1)" strokeWidth="3" />
+            <circle cx="40" cy="40" r="34" fill="none" stroke="url(#kg)" strokeWidth="3" strokeLinecap="round" strokeDasharray="60 200" transform="rotate(-90 40 40)">
+              <animateTransform attributeName="transform" type="rotate" values="-90 40 40;270 40 40" dur="1.2s" repeatCount="indefinite" />
+            </circle>
+          </svg>
+        </div>
+        <h2>Matching your face to ID…</h2>
+        <div style={{ fontSize: 12, color: 'var(--fg-3)' }}>Liveness check · Face matching · Sanctions screening</div>
+      </div>
+    )
+  }
+
+  const prompts = ['Look straight ahead', 'Slowly turn left', 'Slowly turn right', 'Perfect, hold still']
+  return (
+    <div className="flow-panel">
+      <div>
+        <h2>Quick selfie</h2>
+        <div className="subtitle">Liveness check — we make sure it's really you. No photo of a photo.</div>
+      </div>
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: 280,
+          aspectRatio: '1',
+          margin: '0 auto',
+          borderRadius: '50%',
+          overflow: 'hidden',
+          background: 'radial-gradient(circle at 50% 30%, #1a1f1c, #0a0a0c)',
+          border: '2px solid ' + (captured ? 'var(--accent-2)' : 'var(--line-2)'),
+        }}
+      >
+        <svg viewBox="0 0 200 200" style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}>
+          <defs>
+            <radialGradient id="face" cx="50%" cy="40%" r="50%">
+              <stop offset="0" stopColor="#5a4a3e" />
+              <stop offset="1" stopColor="#2a1f18" />
+            </radialGradient>
+          </defs>
+          <ellipse
+            cx="100"
+            cy="115"
+            rx="48"
+            ry="60"
+            fill="url(#face)"
+            transform={`rotate(${pose === 1 ? -8 : pose === 2 ? 8 : 0} 100 115)`}
+            style={{ transition: 'transform 500ms' }}
+          />
+          <path d="M 52 95 Q 100 50, 148 95 L 145 80 Q 100 35, 55 80 Z" fill="#1a0f08" />
+          <ellipse cx="84" cy="105" rx="4" ry="2.5" fill="#1a1410" />
+          <ellipse cx="116" cy="105" rx="4" ry="2.5" fill="#1a1410" />
+          <path d="M 88 145 Q 100 152, 112 145" stroke="#3a2418" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+        </svg>
+        <svg viewBox="0 0 100 100" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+          <circle
+            cx="50"
+            cy="50"
+            r="48"
+            fill="none"
+            stroke="var(--accent-2)"
+            strokeWidth="0.8"
+            strokeDasharray={`${captured ? (pose + 1) * 75 : 0} 1000`}
+            style={{ transition: 'stroke-dasharray 600ms' }}
+          />
+        </svg>
+        <div style={{ position: 'absolute', bottom: 14, left: 0, right: 0, textAlign: 'center', fontSize: 11, color: 'var(--fg-1)', textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
+          {captured ? prompts[pose] : 'Center your face'}
+        </div>
+      </div>
+      <div className="card" style={{ background: 'var(--bg-2)', padding: '12px 14px' }}>
+        <div className="col" style={{ gap: 6, fontSize: 11.5 }}>
+          {([
+            ['Lighting', captured],
+            ['Face centered', captured],
+            ['Liveness', captured && pose >= 2],
+          ] as Array<[string, boolean]>).map(([k, ok]) => (
+            <div key={k} className="row" style={{ gap: 8, color: ok ? 'var(--accent-2)' : 'var(--fg-3)' }}>
+              {ok ? <Icon.check /> : <span style={{ width: 12, height: 12, border: '1px solid currentColor', borderRadius: '50%' }} />}
+              {k}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="row" style={{ gap: 10 }}>
+        <button className="btn btn-ghost" onClick={onBack}><Icon.arrowLeft /> Back</button>
+        {!captured && (
+          <button className="btn btn-accent" style={{ flex: 1 }} onClick={() => setCaptured(true)}>
+            Start liveness check
+          </button>
+        )}
+        {captured && (
+          <button className="btn btn-accent" style={{ flex: 1 }} disabled={pose < 3} onClick={onNext}>
+            {pose < 3 ? 'Hold on…' : 'Submit for verification'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function KYCDone() {
+  const navigate = useNavigate()
+  return (
+    <div className="flow-panel" style={{ maxWidth: 480 }}>
+      <div className="col" style={{ alignItems: 'center', gap: 14, textAlign: 'center' }}>
+        <div className="success-glyph"><Icon.check style={{ width: 28, height: 28 }} /></div>
+        <h2>You're verified</h2>
+        <div className="subtitle">
+          Your account now supports card payments and sends up to{' '}
+          <span className="mono" style={{ color: 'var(--fg-1)' }}>$10,000/month</span>. Welcome to ChainRemit, Aarav.
+        </div>
+      </div>
+      <div className="card" style={{ padding: 0, background: 'var(--bg-2)' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line-1)' }}>
+          <div className="card-title">Verification summary</div>
+        </div>
+        <div style={{ padding: '8px 18px' }}>
+          <div className="review-row"><span className="k">Phone</span><span className="v" style={{ color: 'var(--accent-2)' }}>Verified</span></div>
+          <div className="review-row"><span className="k">Document</span><span className="v">Passport · USA</span></div>
+          <div className="review-row"><span className="k">Liveness</span><span className="v" style={{ color: 'var(--accent-2)' }}>Match 98.4%</span></div>
+          <div className="review-row"><span className="k">Sanctions</span><span className="v" style={{ color: 'var(--accent-2)' }}>Clear</span></div>
+          <div className="review-row total">
+            <span className="k">Tier</span>
+            <span className="v" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+              Verified · Tier 2
+            </span>
+          </div>
+        </div>
+      </div>
+      <button className="btn btn-primary btn-block" onClick={() => navigate('/')}>Continue to dashboard</button>
+      <button className="btn btn-ghost btn-block" onClick={() => navigate('/send')}>Send your first transfer</button>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page: Settings (frontend-only display)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Settings() {
+  const wallet = useWallet()
+  const [toggles, setToggles] = useState({ biometric: true, autoCancel: true, emailNotify: false })
+  const t = (k: keyof typeof toggles) => setToggles((s) => ({ ...s, [k]: !s[k] }))
+  return (
+    <div className="content-narrow">
+      <div className="page-header">
+        <h2 className="page-title">Settings</h2>
+        <div className="page-sub">Wallet, security, and notification preferences.</div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title" style={{ marginBottom: 14 }}>Connected wallet</div>
+        <div className="row" style={{ gap: 12 }}>
+          <div className="avatar cool" style={{ width: 44, height: 44 }}>P</div>
+          <div className="col" style={{ gap: 2 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 500 }}>{wallet.connected ? 'Phantom' : 'No wallet connected'}</div>
+            <div className="mono" style={{ fontSize: 11.5, color: 'var(--fg-3)' }}>
+              {wallet.publicKey ? shortAddr(wallet.publicKey.toBase58(), 8, 8) : '—'}
+            </div>
+          </div>
+          <div className="spacer" />
+          {wallet.connected ? (
+            <button className="btn btn-outline" style={{ fontSize: 12.5 }} onClick={() => wallet.disconnect()}>Disconnect</button>
+          ) : (
+            <span className="muted" style={{ fontSize: 12 }}>Connect from the top bar</span>
+          )}
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title" style={{ marginBottom: 14 }}>Security</div>
+        <div className="col" style={{ gap: 0 }}>
+          {([
+            ['Require biometric for sends > $200', 'biometric'],
+            ['Auto-cancel unclaimed escrow after 14 days', 'autoCancel'],
+            ['Notify by email on every confirmation', 'emailNotify'],
+          ] as Array<[string, keyof typeof toggles]>).map(([label, key], i) => (
+            <div key={key} className="row" style={{ padding: '12px 0', borderTop: i ? '1px solid var(--line-1)' : 'none', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13 }}>{label}</span>
+              <button
+                onClick={() => t(key)}
+                style={{
+                  width: 36,
+                  height: 20,
+                  borderRadius: 999,
+                  background: toggles[key] ? 'var(--accent-grad)' : 'var(--bg-3)',
+                  position: 'relative',
+                  cursor: 'pointer',
+                  border: 'none',
+                  padding: 0,
+                }}
+                aria-label={label}
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 2,
+                    left: toggles[key] ? 18 : 2,
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    background: '#fff',
+                    transition: 'left 160ms ease',
+                  }}
+                />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title" style={{ marginBottom: 14 }}>Network</div>
+        <div className="col" style={{ gap: 8, fontSize: 13 }}>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <span className="muted">RPC endpoint</span>
+            <span className="mono">api.devnet.solana.com</span>
+          </div>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <span className="muted">Escrow program</span>
+            <span className="mono">{shortAddr(PROGRAM_ID.toBase58(), 6, 6)}</span>
+          </div>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <span className="muted">Relayer</span>
+            <span className="mono">localhost:8787</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // App
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1710,7 +2707,10 @@ const ROUTE_TITLES: Record<string, [string, string]> = {
   '/receive': ['Receiver demo', 'Tools'],
   '/recurring': ['Recurring', 'Wallet'],
   '/history': ['Activity', 'Wallet'],
-  '/agent': ['Agent console', 'Tools'],
+  '/agent': ['Agent locator', 'Tools'],
+  '/agent/console': ['Agent console', 'Tools'],
+  '/kyc': ['Verify identity', 'Account'],
+  '/settings': ['Settings', 'Account'],
   '/claim': ['Receiver demo', 'Tools'],
 }
 
@@ -1738,7 +2738,10 @@ function App() {
         <Route path="/claim" element={<ShelledRoute><Receive /></ShelledRoute>} />
         <Route path="/recurring" element={<ShelledRoute><Recurring /></ShelledRoute>} />
         <Route path="/history" element={<ShelledRoute><History /></ShelledRoute>} />
-        <Route path="/agent" element={<ShelledRoute><AgentConsole /></ShelledRoute>} />
+        <Route path="/agent" element={<ShelledRoute><AgentLocator /></ShelledRoute>} />
+        <Route path="/agent/console" element={<ShelledRoute><AgentConsole /></ShelledRoute>} />
+        <Route path="/kyc" element={<ShelledRoute><KYCFlow /></ShelledRoute>} />
+        <Route path="/settings" element={<ShelledRoute><Settings /></ShelledRoute>} />
         <Route path="*" element={<ShelledRoute><Dashboard /></ShelledRoute>} />
       </Routes>
     </FxRateProvider>
