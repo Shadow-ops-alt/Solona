@@ -199,6 +199,17 @@ async function getFx(pair: 'USDC/USD' | 'SOL/USD') {
   }
 }
 
+app.get('/api/fx-rate', async (_req, res) => {
+  // Pyth supplies USDC/USD live; NPR base is mocked (no live NPR feed on Pyth).
+  // The provider tag reflects the USDC half — PYTH_LIVE when Hermes is reachable.
+  const usdc = await getFx('USDC/USD')
+  const minute = Math.floor(Date.now() / 60000)
+  const wobble = (minute % 7) * 0.002
+  const nprBase = 132.84 * (1 + wobble)
+  const rate = Number((usdc.rate * nprBase).toFixed(4))
+  res.json({ rate, provider: usdc.provider, asOfMs: usdc.asOfMs })
+})
+
 app.post('/api/remittances', async (req, res) => {
   const parsed = CreateRemittanceSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() })

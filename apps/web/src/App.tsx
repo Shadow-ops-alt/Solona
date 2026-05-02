@@ -1,5 +1,5 @@
 import './App.css'
-import { useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { Buffer } from 'buffer'
@@ -238,21 +238,49 @@ function shortAddr(s?: string | null, head = 4, tail = 4) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FX rate (USD → NPR) — fetched once, shared across the app
+// ─────────────────────────────────────────────────────────────────────────────
+
+type FxRate = { rate: number; provider: 'PYTH_LIVE' | 'PYTH_MOCK'; asOfMs: number }
+const FX_FALLBACK: FxRate = { rate: 132.84, provider: 'PYTH_MOCK', asOfMs: 0 }
+
+const FxRateContext = createContext<FxRate>(FX_FALLBACK)
+const useFxRate = () => useContext(FxRateContext)
+
+function FxRateProvider({ children }: { children: React.ReactNode }) {
+  const [fx, setFx] = useState<FxRate>(FX_FALLBACK)
+  useEffect(() => {
+    let cancelled = false
+    const tick = async () => {
+      try {
+        const out = await api<FxRate>('/api/fx-rate')
+        if (!cancelled) setFx(out)
+      } catch {
+        // keep fallback
+      }
+    }
+    void tick()
+    const id = window.setInterval(() => void tick(), 30_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [])
+  return <FxRateContext.Provider value={fx}>{children}</FxRateContext.Provider>
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Shared components
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FXTicker({ rate = 132.84 }: { rate?: number }) {
-  const [r, setR] = useState(rate)
-  useEffect(() => {
-    const id = setInterval(() => {
-      setR((x) => +(x + (Math.random() - 0.5) * 0.04).toFixed(3))
-    }, 1800)
-    return () => clearInterval(id)
-  }, [])
+function FXTicker() {
+  const fx = useFxRate()
   return (
     <span className="fx-ticker">
       <span className="pulse" />
-      <span>Pyth · 1 USD = NPR {r.toFixed(2)}</span>
+      <span>
+        {fx.provider === 'PYTH_LIVE' ? 'Pyth' : 'Pyth (mock)'} · 1 USD = NPR {fx.rate.toFixed(2)}
+      </span>
     </span>
   )
 }
@@ -500,6 +528,7 @@ const FX_SPARK = [131.2, 131.5, 131.4, 132.0, 131.8, 132.4, 132.6, 132.3, 132.7,
 
 function Dashboard() {
   const navigate = useNavigate()
+  const fx = useFxRate()
   const [remittances, setRemittances] = useState<Remittance[]>([])
   useEffect(() => {
     let cancelled = false
@@ -519,7 +548,10 @@ function Dashboard() {
   const totalUsd = remittances.filter((r) => r.status === 'CLAIMED').reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
   const pendingCount = remittances.filter((r) => r.status === 'CREATED').length
   const claimedCount = remittances.filter((r) => r.status === 'CLAIMED').length
-  const savedNpr = Math.round(totalUsd * 132 - totalUsd * 123)
+  // 6.7% is Western Union's typical fee; the difference is what the family pockets.
+  const savedNpr = Math.round(totalUsd * fx.rate * 0.067)
+  const heroUsd = 100
+  const heroNpr = Math.round(heroUsd * fx.rate)
   const recent = remittances.slice(0, 5)
 
   return (
@@ -604,7 +636,7 @@ function Dashboard() {
                   </div>
                   <div className="tx-amt out">−${tx.amount}</div>
                   <div className="mono tnum dim hide-sm" style={{ fontSize: 12 }}>
-                    {tx.fx ? `NPR ${nprFmt.format(Math.round(Number(tx.amount) * tx.fx.rate * 132))}` : '—'}
+                    NPR {nprFmt.format(Math.round(Number(tx.amount) * fx.rate))}
                   </div>
                   <div>
                     <span className={`status-pill ${statusClass(tx.status)}`}>{statusLabel(tx.status)}</span>
@@ -619,7 +651,7 @@ function Dashboard() {
         </div>
 
         <div className="col" style={{ gap: 20 }}>
-          <SavingsBar usd={100} npr={13284} variant="racing" />
+          <SavingsBar usd={heroUsd} npr={heroNpr} variant="racing" />
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: 20, paddingBottom: 12 }}>
               <div className="card-title" style={{ marginBottom: 6 }}>Network status</div>
@@ -653,6 +685,7 @@ function SendFlow() {
   const { connection } = useConnection()
   const wallet = useWallet()
   const { setVisible } = useWalletModal()
+  const fx = useFxRate()
 
   const [amount, setAmount] = useState('100')
   const [asset, setAsset] = useState<'USDC' | 'SOL'>('USDC')
@@ -690,7 +723,7 @@ function SendFlow() {
 
   const usd = Number(amount)
   const usdcAmount = Number.isFinite(usd) && usd > 0 ? usd : 0
-  const npr = Math.round(usdcAmount * 132)
+  const npr = Math.round(usdcAmount * fx.rate)
 
   async function submit() {
     setError(null)
@@ -878,7 +911,7 @@ function SendFlow() {
           </div>
         </div>
 
-        <SavingsBar usd={usdcAmount || 100} npr={npr || 13284} variant="minimal" />
+        <SavingsBar usd={usdcAmount || 100} npr={npr || Math.round(100 * fx.rate)} variant="minimal" />
 
         <div className="field">
           <div className="field-label">Cash-out method</div>
@@ -964,7 +997,7 @@ function SendFlow() {
           </div>
           <div className="amount">${created.remittance.amount}</div>
           <div className="amount-sub">
-            ≈ NPR {nprFmt.format(Math.round(Number(created.remittance.amount) * 132))} · {created.remittance.payoutMethod}
+            ≈ NPR {nprFmt.format(Math.round(Number(created.remittance.amount) * fx.rate))} · {created.remittance.payoutMethod}
           </div>
           <div className="receipt-grid">
             <div>
@@ -1053,6 +1086,7 @@ function Radio({ selected }: { selected: boolean }) {
 function Receive() {
   const wallet = useWallet()
   const { setVisible } = useWalletModal()
+  const fx = useFxRate()
 
   const initialClaimToken =
     typeof window !== 'undefined' && window.location.hash.startsWith('#')
@@ -1151,7 +1185,7 @@ function Receive() {
           </div>
           <div className="amount">${claimed.remittance.amount}</div>
           <div className="amount-sub">
-            ≈ NPR {nprFmt.format(Math.round(Number(claimed.remittance.amount) * 132))} · ready via {claimed.remittance.payoutMethod}
+            ≈ NPR {nprFmt.format(Math.round(Number(claimed.remittance.amount) * fx.rate))} · ready via {claimed.remittance.payoutMethod}
           </div>
           <div className="receipt-grid">
             <div>
@@ -1480,6 +1514,7 @@ function History() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function AgentConsole() {
+  const fx = useFxRate()
   const [authed, setAuthed] = useState(false)
   const [pin, setPin] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1597,7 +1632,7 @@ function AgentConsole() {
                 className="value"
                 style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}
               >
-                NPR {nprFmt.format(Math.round(totalPendingUsd * 132))}
+                NPR {nprFmt.format(Math.round(totalPendingUsd * fx.rate))}
               </div>
             </div>
             <div className="stat">
@@ -1695,16 +1730,18 @@ function ShelledRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<ShelledRoute><Dashboard /></ShelledRoute>} />
-      <Route path="/send" element={<ShelledRoute><SendFlow /></ShelledRoute>} />
-      <Route path="/receive" element={<ShelledRoute><Receive /></ShelledRoute>} />
-      <Route path="/claim" element={<ShelledRoute><Receive /></ShelledRoute>} />
-      <Route path="/recurring" element={<ShelledRoute><Recurring /></ShelledRoute>} />
-      <Route path="/history" element={<ShelledRoute><History /></ShelledRoute>} />
-      <Route path="/agent" element={<ShelledRoute><AgentConsole /></ShelledRoute>} />
-      <Route path="*" element={<ShelledRoute><Dashboard /></ShelledRoute>} />
-    </Routes>
+    <FxRateProvider>
+      <Routes>
+        <Route path="/" element={<ShelledRoute><Dashboard /></ShelledRoute>} />
+        <Route path="/send" element={<ShelledRoute><SendFlow /></ShelledRoute>} />
+        <Route path="/receive" element={<ShelledRoute><Receive /></ShelledRoute>} />
+        <Route path="/claim" element={<ShelledRoute><Receive /></ShelledRoute>} />
+        <Route path="/recurring" element={<ShelledRoute><Recurring /></ShelledRoute>} />
+        <Route path="/history" element={<ShelledRoute><History /></ShelledRoute>} />
+        <Route path="/agent" element={<ShelledRoute><AgentConsole /></ShelledRoute>} />
+        <Route path="*" element={<ShelledRoute><Dashboard /></ShelledRoute>} />
+      </Routes>
+    </FxRateProvider>
   )
 }
 

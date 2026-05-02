@@ -416,8 +416,8 @@ a { color: inherit; text-decoration: none; }
   gap: 20px;
 }
 .flow-panel.wide { max-width: 720px; }
-.flow-panel h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; margin: 0; }
-.flow-panel .subtitle { color: var(--fg-2); font-size: 13.5px; margin: -12px 0 0; }
+.flow-panel h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px; }
+.flow-panel .subtitle { color: var(--fg-2); font-size: 13.5px; margin: 0; }
 
 /* Receipt */
 .receipt {
