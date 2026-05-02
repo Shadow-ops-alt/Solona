@@ -1,41 +1,47 @@
-# ChainRemit (Solona) — Hackathon MVP
+# ChainRemit
 
-Permissionless remittance rails for Nepal/South Asia on Solana:
+ChainRemit is a Solana-powered remittance demo focused on fast, low-cost transfers for users sending money home. The app shows a wallet-style dashboard, remittance creation flow, receiver claim demo, recurring transfers, activity tracking, and an agent console for assisted cash-out workflows.
 
-- **Sender UI**: pay in SOL/USDC, get a claim link
-- **Escrow (Anchor program)**: hold funds until recipient claims or sender cancels
-- **Relayer + event listener**: watches escrow state and coordinates off-chain steps
-- **Receiver UI**: mobile-first, Privy login, claim funds
-- **Oracle**: Pyth for FX quoting (SOL/USD + local fiat proxy)
-- **Off-ramp**: MoonPay (stubbed in MVP; wire to sponsor APIs later)
+This project is built as a monorepo with a web client, relayer logic, and an escrow program.
 
-## Repo layout
+## Overview
 
-- `apps/web`: Vite + React (sender + receiver flows)
-- `apps/relayer`: Express API (claim links, mocked escrow, later on-chain integration)
-- `programs/escrow`: Anchor program source (added next)
+ChainRemit demonstrates a remittance flow where a sender can create a transfer, lock funds through an escrow-style flow, and allow a recipient or agent-assisted receiver to claim the payout.
 
-## Quick start (UI + API)
+The current version is designed for development and demo use.
 
-```bash
-npm install
-npm run dev
-```
+## Features
 
-- Web: `http://localhost:5173`
-- Relayer: `http://localhost:8787`
+- Wallet overview dashboard
+- Send money flow
+- Activity history
+- Recurring remittance demo
+- Receiver claim screen
+- Agent console with PIN-gated access
+- Solana devnet-focused workflow
+- Escrow-oriented transfer model
+- Minimal dark UI with responsive layouts
 
-## Solana/Anchor setup (needed to deploy on-chain)
+## Tech Stack
 
-This machine currently doesn’t have Solana/Anchor/Rust installed. When you’re ready:
+- React
+- Vite
+- TypeScript
+- Node.js
+- Solana Web3.js
+- Anchor
+- Metaplex UMI
+- npm workspaces
 
-1. Install Rust (`rustup`)
-2. Install Solana CLI
-3. Install Anchor
-4. Build + deploy the program in `programs/escrow`
+## Project Structure
 
-Once installed, we’ll wire `apps/relayer` to:
-- create escrow accounts
-- verify deposits
-- release funds on recipient claim
-
+```txt
+chain-remit/
+├── apps/
+│   ├── web/          # Frontend application
+│   └── relayer/      # Relayer and Solana interaction logic
+├── programs/
+│   └── escrow/       # Anchor escrow program
+├── package.json
+├── package-lock.json
+└── README.md
